@@ -11,6 +11,8 @@ let config = {
         update: update,
         extend: {
             playerJump: playerJump,
+            setEmitter: setEmitter,
+            switchCamera: switchCamera,
             drawLine: drawLine,
             newLine: newLine
         }
@@ -33,17 +35,19 @@ function preload() {
         frameWidth: 32,
         frameHeight: 32
     });
+    this.load.image('particle', '../../assets/Green_Particle.png');
 }
 
 function create() {
+    // PLAYER W/ ANIMATIONS
     this.player = this.physics.add.sprite(0, 0, 'player');
     this.anims.create({
         key: 'player_stand',
         frames: [{
             key: 'player',
             frame: 0
-        }],
-    })
+        }]
+    });
     this.anims.create({
         key: 'player_walk',
         frames: this.anims.generateFrameNumbers('player', {
@@ -52,7 +56,7 @@ function create() {
         }),
         frameRate: 10,
         repeat: -1
-    })
+    });
     this.anims.create({
         key: 'player_jump',
         frames: this.anims.generateFrameNumbers('player', {
@@ -61,7 +65,7 @@ function create() {
         }),
         frameRate: 10,
         repeat: 0
-    })
+    });
     this.anims.create({
         key: 'player_rise',
         frames: this.anims.generateFrameNumbers('player', {
@@ -70,7 +74,7 @@ function create() {
         }),
         frameRate: 10,
         repeat: -1
-    })
+    });
     this.anims.create({
         key: 'player_fall',
         frames: this.anims.generateFrameNumbers('player', {
@@ -79,57 +83,149 @@ function create() {
         }),
         frameRate: 10,
         repeat: -1
-    })
+    });
 
+    // PLAYER SETTINGS
     this.player.body.setSize(20, 25); // shrink hit box
     this.player.setScale(3); // 3 times bigger
     this.player.setDepth(1); // set player above other elements
     this.player.setVelocityX(50); // constant horizontal velocity
+    this.player.anims.play('player_rise');
 
+    // PARTICLE/EMITTER SETTINGS
+    this.particles = this.add.particles('particle');
+    this.emitter = this.particles.createEmitter({
+        x: this.player.x,
+        y: this.player.y + 10,
+        lifespan: 0,
+        speed: {
+            min: 200,
+            max: 400
+        },
+        angle: 98,
+        gravityY: 300,
+        scale: {
+            start: 7,
+            end: 0.5
+        },
+        blendMode: 'ADD',
+        visible: false,
+        alpha: 0.18
+    });
+
+    // CAMERA SETTINGS
+    // MAIN
     this.cameras.main.startFollow(this.player); // follow player with camera
     this.cameras.main.setZoom(0.8);
 
-    this.wideView = this.cameras.add();
-    this.wideView.startFollow(this.player);
-    this.wideView.setZoom(0.3);
-    this.wideView.setVisible(false);
+    // OVERVIEW
+    this.overview = this.cameras.add();
+    this.overview.setZoom(0.3);
+    this.overview.setBounds(0, -(this.sys.scale.height) / this.overview.zoom, 0, 0); // set camera left corner to (0, 0)
+    this.overview.setVisible(false);
 
-    this.cursors = this.input.keyboard.createCursorKeys();
+    // INPUT SETTINGS
+    this.mKey = this.input.keyboard.addKey('M');
+    this.mKey.on('down', switchCamera, this); // switch camera
     this.space = this.input.keyboard.addKey('space');
     this.space.on('down', playerJump, this); // jump on space
 
+    // GRAPHICS SETTINGS
     this.graphics = this.add.graphics(); // to draw lines
+    this.startX = 0;
+    this.startY = 0;
+
+    // PHYSICS SETTINGS
+    this.physics.pause();
+    this.isPaused = true;
     this.wasMovingUp;
     this.wasMovingDown;
-    this.startX;
-    this.startY;
-}
-
-function playerJump() {
-    this.player.setVelocityY(-550);
-    if (this.player.anims.getCurrentKey() !== 'player_rise' &&
-        this.player.anims.getCurrentKey() !== 'player_jump') {
-        this.player.anims.play('player_jump');
-    }
-    this.player.anims.chain('player_rise');
 }
 
 function update() {
-    if (this.player.body.velocity.y < 0) { // when moving up
-        this.drawLine();
-        if (this.wasMovingDown) { // if previously moving down create a new line
+    // PARTICLE TRACKER
+    this.particles.x = this.player.x;
+    this.particles.y = this.player.y;
+
+    if (this.player.y > 0) {
+        this.playerJump();
+    }
+
+    // MOVING UP
+    if (this.player.body.velocity.y <= 0) {
+        this.setEmitter(280, 6); // Enable emitter (final value, step)
+
+        this.drawLine(); // draw line
+
+        // IF PREVIOUSLY MOVING DOWN
+        if (this.wasMovingDown) {
             this.wasMovingDown = false;
             this.newLine();
         }
         this.wasMovingUp = true;
-    } else if (this.player.body.velocity.y > 0) { // when moving down
+    }
+    // MOVING DOWN
+    else if (this.player.body.velocity.y > 0) {
+        this.setEmitter(0, -7);
+
         this.drawLine();
-        if (this.wasMovingUp) { // if previously moving up create a new line
+
+        // IF PREVIOUSLY MOVING UP
+        if (this.wasMovingUp) {
             this.wasMovingUp = false;
-            this.player.anims.delayedPlay(200, 'player_fall');
             this.newLine();
+
+            // ANIMATION FALL
+            this.player.anims.delayedPlay(200, 'player_fall');
         }
         this.wasMovingDown = true;
+    }
+}
+
+// PLAYER JUMP
+function playerJump() {
+    const jumpHeight = -550;
+
+    if (this.player.y > -(this.overview.height / this.overview.zoom) + 150) {
+        this.player.setVelocityY(jumpHeight);
+    }
+    // ANIMATION JUMP
+    if (this.player.anims.getCurrentKey() !== 'player_jump' &&
+        this.player.anims.getCurrentKey() !== 'player_rise') {
+        this.player.anims.play('player_jump');
+        this.player.anims.chain('player_rise');
+    }
+
+    // UNPAUSE GAME
+    if (this.isPaused) {
+        this.isPaused = false;
+        this.physics.resume();
+    }
+}
+
+// SET EMITTER (Gives transition effect)
+function setEmitter(setValue, increment) {
+    let lifespan = this.emitter.lifespan;
+    if (increment > 0 && (lifespan.propertyValue < setValue)) {
+        this.emitter.setVisible(true);
+        lifespan.propertyValue += increment;
+    } else if (increment < 0 && (lifespan.propertyValue > setValue)) {
+        lifespan.propertyValue += increment;
+        if (lifespan.propertyValue < 0) {
+            this.emitter.setVisible(false);
+            lifespan.propertyValue = 0;
+        }
+    }
+}
+
+// SWITCH CAMERA
+function switchCamera() {
+    if (this.cameras.main.visible === true) {
+        this.overview.visible = true;
+        this.cameras.main.visible = false;
+    } else {
+        this.overview.visible = false;
+        this.cameras.main.visible = true;
     }
 }
 
