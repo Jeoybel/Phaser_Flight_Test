@@ -4,9 +4,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Practice</title>
-    <script src="js/phaser.js"></script>
-    <script src="js/game.js" type="module"></script>
     <style>
         div.a {
             font-size: 130%;
@@ -14,8 +11,6 @@
     </style>
 </head>
 <body>
-    <h1>Flying Alien</h1>
-    <div id="game"></div>
     <h2>!!!WORK IN PROGRESS!!!</h2>
     <h2>========= CHANGELOG (11/24/19) =========</h2>
     <div class="a">
