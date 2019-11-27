@@ -13,13 +13,12 @@ let config = {
     height: 600,
     backgroundColor: '#5FA1DA',
     parent: 'game',
-    pixelArt: true, // prevents blurriness with scaling sprites
     scene: [PreloadScene, PauseScene, EasyLevelScene],
     physics: {
         default: 'arcade',
         arcade: {
             gravity: {
-                y: 1200
+                y: 750
             },
             debug: false
         }
